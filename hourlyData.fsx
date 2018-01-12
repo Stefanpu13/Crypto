@@ -6,8 +6,3 @@
         * pairs volume per exchange
 *)
 
-open System;
-open System.Threading;
-
-DateTime.UtcNow.Minute
-
