@@ -28,94 +28,135 @@
                 ** IF prices are for several currencies, 
                 than maybe the exchange has problems
 *)
+//#region https://coinmarketcap.com top exchanges by volume
+
+#r @"packages\Fsharp.Data.dll"
+open FSharp.Data
 
 #load "utils.fsx"
 open Utils
 
-//#region https://coinmarketcap.com top exchanges by volume
-#load "coinmarketgap.fsx"
-open Coinmarketgap
-open FSharp.Data
+open System
 
-List.iter (printfn "%A") top20ExchangesWithVolume
+module Exchanges = 
+    let exchangesPage = HtmlDocument.Load("https://coinmarketcap.com/exchanges/volume/24-hour/all/")
 
-//#endregion
+    let exchangesInfoRows = exchangesPage.CssSelect(".table.table-condensed > tr")
+
+    let top20Exchanges = 
+        exchangesInfoRows
+        |> Seq.map(fun el -> el, el.AttributeValue("id"))
+        |> Seq.filter(fun (_, attr) -> not <| String.IsNullOrEmpty(attr))
+        |> Seq.map snd
+        |> Seq.take 20
+        |> List.ofSeq
+
+    let top20exchangesVolume = 
+        exchangesInfoRows
+        |> Seq.filter(fun row -> 
+            let ems = row.CssSelect("td > em")
+            if ems.IsEmpty then false
+            else ems.Head.InnerText() = "Total"
+        )
+        |> Seq.map( fun volumeRow -> 
+            volumeRow.Elements()
+            |> Seq.item 1
+            |> (fun td -> td.InnerText())
+        )
+        |> Seq.take 20
+        |> List.ofSeq
+
+    let top20ExchangesWithVolume = List.zip top20Exchanges top20exchangesVolume
+
+    // List.iter (printfn "%A") top20ExchangesWithVolume
+
+    //#endregion
 
 
-(*
-    For each of the top 20 exchanges get the list of the listed curerncies 
-    and their daily volume
-*)
+    (*
+        For each of the top 20 exchanges get the list of the listed curerncies 
+        and their daily volume
+    *)
 
-type Code = string
+    type Code = string
 
-type Coin = {    
-    code:Code  
-}
+    type Coin = {    
+        code:Code  
+    }
 
-type Pair = {
-    // the first currency in the pair is called base
-    baseCurrency: Code
-    quoteCurrency: Code
-    volume: int64
-    // volumePer: int
-}
+    type Pair = {
+        // the first currency in the pair is called base
+        baseCurrency: Code
+        quoteCurrency: Code
+        volume: int64    
+    }
 
 
-let coinsPerExchanges = 
-    top20Exchanges
-    |> Seq.map(fun exchangeName ->
-        let exchangePage = 
-            HtmlDocument.Load("https://coinmarketcap.com/exchanges/" + exchangeName)
-        let listedCoinsRows = 
-            exchangePage.CssSelect(".table-responsive tr") 
-            // skip the header row
-            |> Seq.skip 1 
-            |> Seq.map(fun row ->
-                let children = row.Elements()
-                let pair = 
-                    children
-                    |> Seq.item 2
-                    |> (fun td -> td.InnerText())
-                let baseAndQuote = pair.Split([|'/'|])               
-                let baseCurr, quoteCurr = baseAndQuote.[0], baseAndQuote.[1]
-                let pairVolume = 
-                    children 
-                    |> Seq.item 3
-                    |> (fun td -> 
-                        td.Elements() 
-                        |> Seq.head 
-                        |> (fun span -> span.InnerText())
-                    )
-                    |> (fun volume -> 
-                        match volume with
-                        | ValidUSDPrice p -> p 
-                        |_ -> 0L
-                    )
+    let coinsPerExchanges = 
+        top20Exchanges
+        |> Seq.map(fun exchangeName ->
+            let exchangePage = 
+                HtmlDocument.Load("https://coinmarketcap.com/exchanges/" + exchangeName)
+            let listedCoinsRows = 
+                exchangePage.CssSelect(".table-responsive tr") 
+                // skip the header row
+                |> Seq.skip 1 
+                |> Seq.map(fun row ->
+                    let children = row.Elements()
+                    let pair = 
+                        children
+                        |> Seq.item 2
+                        |> (fun td -> td.InnerText())
+                    let baseAndQuote = pair.Split([|'/'|])               
+                    let baseCurr, quoteCurr = baseAndQuote.[0], baseAndQuote.[1]
+                    let pairVolume = 
+                        children 
+                        |> Seq.item 3
+                        |> (fun td -> 
+                            td.Elements() 
+                            |> Seq.head 
+                            |> (fun span -> span.InnerText())
+                        )
+                        |> (fun volume -> 
+                            match volume with
+                            | ValidUSDPrice p -> p 
+                            |_ -> 0L
+                        )
 
-                {
-                    baseCurrency= baseCurr
-                    quoteCurrency= quoteCurr
-                    volume=pairVolume
-                }                                 
-            ) 
-            |> Set.ofSeq          
-        
-        exchangeName, listedCoinsRows    
-    )
-    |> List.ofSeq
+                    {
+                        baseCurrency= baseCurr
+                        quoteCurrency= quoteCurr
+                        volume=pairVolume
+                    }                                 
+                ) 
+                |> Set.ofSeq          
+            
+            exchangeName, listedCoinsRows    
+        )
+        |> List.ofSeq
 
-// List all top 20 exchanges where given coin is traded(is base currency)
+    // List all top 20 exchanges where given coin is traded(is base currency)
 
-let exchangesOfCoin (coinCode: string) = 
-    coinsPerExchanges
-    |> Seq.filter( fun coinsOnExchange ->
-        coinsOnExchange
+    let exchangesOfCoin (coinCode: string) = 
+        coinsPerExchanges
+        |> Seq.filter( fun coinsOnExchange ->
+            coinsOnExchange
+            |> snd
+            |> Set.exists(fun c -> c.baseCurrency.ToLower() = coinCode.ToLower())
+        )
+
+    let coinsInExchange (exchange: string) = 
+        coinsPerExchanges 
+        |> Seq.find(fun (exch, _) -> exchange = exch)
         |> snd
-        |> Set.exists(fun c -> c.baseCurrency.ToLower() = coinCode.ToLower())
-    )
 
 
-exchangesOfCoin "XRP"
+Exchanges.coinsInExchange "bittrex" 
+|> Seq.map(fun curr -> curr.baseCurrency) 
+|> Set.ofSeq
+
+Exchanges.exchangesOfCoin "XMR"
 |> Seq.map fst
 |> List.ofSeq
+
+Exchanges.top20exchangesVolume

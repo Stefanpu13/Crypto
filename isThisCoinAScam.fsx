@@ -23,12 +23,6 @@ let allCoinsPage = HtmlDocument.Load("https://coinmarketcap.com/all/views/all/")
 let coinRows = 
     allCoinsPage.CssSelect("#currencies-all > tbody > tr")
 
-// let (|ValidUSDPrice|_|) (price: string) = 
-//    let mutable v = 0L
-//    let priceStr = price.Substring(1).Replace(",", "")
-//    if Int64.TryParse(priceStr, &v) then Some(v)
-//    else None   
-
 let getInnerText (parent: HtmlNode) selector = 
     match Seq.tryHead (parent.CssSelect(selector)) with
     |Some  el ->  el.InnerText() 
