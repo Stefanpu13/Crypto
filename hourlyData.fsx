@@ -33,8 +33,8 @@
 //     System.Threading.Thread.Sleep 2000
 //     printfn "%A" System.DateTime.Now
 
-// for each of top20 exchanges:
-// get all pairs prices, volume
+// for each of top5 exchanges:
+// get all pairs prices, volume for first BTC pair
  (*
      - pair code
      - DateTime in UTC
@@ -43,15 +43,97 @@
  *)
 
 #r @"packages\Fsharp.Data.dll" 
+open FSharp.Data.Runtime.StructuralInference
+#r @"packages\FSharp.Data.SqlClient.dll" 
+open System
+
 open FSharp.Data
 
 #load "exchanges.fsx"
 open Exchanges.Exchanges
 
-top20Exchanges
 
-top20ExchangesWithVolume
+[<Literal>]
+let connectionString = 
+    @"Data Source=.;Initial Catalog=Crypto;Integrated Security=True"
 
-coinsPerExchanges
+let isBTC_USDT pair = 
+    pair.baseCurrency.ToLower() = "btc" &&
+    pair.quoteCurrency.ToLower() = "usdt"
+
+let startWritingToDb ()= 
+    while true do
+        System.Threading.Thread.Sleep 20000
+        let coinsInExchanges = coinsPerExchanges (top20Exchanges |> Seq.take 3)
+
+        coinsInExchanges 
+        |> Seq.map(fun (exchangeName, pairs) ->                
+            match Seq.tryFind isBTC_USDT pairs with
+            | Some p ->  (exchangeName, Some p)
+            | None -> exchangeName, None        
+        )
+        |> Seq.iter (fun exchange ->        
+            match exchange with
+            |  (n, Some p) -> 
+                use cmd = new SqlCommandProvider<"
+                INSERT INTO PairPrice (Date, Price, Exchange, Code)     
+                VALUES(@date, @price, @exchange, @code)
+                ", connectionString>(connectionString)
+
+                cmd.Execute(
+                    date=DateTime.Now,
+                    price=p.pairPrice.price,
+                    exchange=n,
+                    code=p.baseCurrency.ToLower() + "/" + p.quoteCurrency.ToLower()
+                    ) |> ignore
+                
+            | (n, None) ->  printfn "Exchange %A does not have btc/usdt pair" n       
+
+            // printfn "------------------------------------------"
+        )
+
+let readFromDb () = 
+    // do
+    use cmd = new SqlCommandProvider<"
+    Select Date, Price, Exchange, Code 
+    From PairPrice
+    ", connectionString>(connectionString)
+
+    cmd.Execute()
 
 
+// group records by exchange
+let records = readFromDb ()  
+
+let pairsByExchange = 
+    records
+    |> Seq.groupBy (fun record -> record.Exchange.ToLower())
+    
+// get results for specific exchange
+let dataForExchange (exchangeName: string) =     
+    let foundExchange = 
+        pairsByExchange 
+        |> Seq.tryFind (fun (en, _) -> 
+            en.Trim().ToLower() = exchangeName.ToLower()
+        ) 
+
+    match foundExchange with
+    | Some data -> data
+    | None -> failwith "exchange not found"    
+    
+
+// get unique prices 
+let uniqPricesForBinance = 
+    dataForExchange "binance" 
+    |> snd 
+    |> Seq.distinctBy(fun r -> r.Price)
+
+
+// average time for update
+uniqPricesForBinance 
+|> List.ofSeq
+|> List.map(fun r -> r.Date)
+|> List.pairwise
+|> List.map(fun (f, s) -> 
+    s.Subtract(f).Minutes
+)

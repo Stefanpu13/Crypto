@@ -66,9 +66,7 @@ module Exchanges =
         |> Seq.take 20
         |> List.ofSeq
 
-    let top20ExchangesWithVolume = List.zip top20Exchanges top20exchangesVolume
-
-    // List.iter (printfn "%A") top20ExchangesWithVolume
+    let top20ExchangesWithVolume = List.zip top20Exchanges top20exchangesVolume    
 
     //#endregion
 
@@ -105,8 +103,8 @@ module Exchanges =
     }
 
 
-    let coinsPerExchanges = 
-        top20Exchanges
+    let coinsPerExchanges exchanges = 
+        exchanges
         |> Seq.map(fun exchangeName ->
             let exchangePage = 
                 HtmlDocument.Load("https://coinmarketcap.com/exchanges/" + exchangeName)
@@ -168,7 +166,7 @@ module Exchanges =
     // List all top 20 exchanges where given coin is traded(is base currency)
 
     let exchangesOfCoin (coinCode: string) = 
-        coinsPerExchanges
+        coinsPerExchanges top20Exchanges
         |> Seq.filter( fun coinsOnExchange ->
             coinsOnExchange
             |> snd
@@ -176,17 +174,17 @@ module Exchanges =
         )
 
     let coinsInExchange (exchange: string) = 
-        coinsPerExchanges 
+        coinsPerExchanges top20Exchanges
         |> Seq.find(fun (exch, _) -> exchange = exch)
         |> snd
 
 
-Exchanges.coinsInExchange "bittrex" 
-|> Seq.map(fun curr -> curr.baseCurrency) 
-|> Set.ofSeq
+// Exchanges.coinsInExchange "bittrex" 
+// |> Seq.map(fun curr -> curr.baseCurrency) 
+// |> Set.ofSeq
 
-Exchanges.exchangesOfCoin "XMR"
-|> Seq.map fst
-|> List.ofSeq
+// Exchanges.exchangesOfCoin "XMR"
+// |> Seq.map fst
+// |> List.ofSeq
 
-Exchanges.top20exchangesVolume
+// Exchanges.top20exchangesVolume
