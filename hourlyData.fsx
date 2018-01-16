@@ -1,3 +1,4 @@
+
 (*
     Collect hourly data from coinamrket gap and see if it can be used 
     for as historical data
@@ -40,3 +41,17 @@
      - price
      - volume
  *)
+
+#r @"packages\Fsharp.Data.dll" 
+open FSharp.Data
+
+#load "exchanges.fsx"
+open Exchanges.Exchanges
+
+top20Exchanges
+
+top20ExchangesWithVolume
+
+coinsPerExchanges
+
+

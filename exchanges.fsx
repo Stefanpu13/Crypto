@@ -84,11 +84,24 @@ module Exchanges =
         code:Code  
     }
 
+    type Price = {
+        price: decimal
+        excluded: bool
+    }
+
+    type Volume = {
+        volume : decimal
+        excluded: bool
+    }
+
     type Pair = {
+        exchangeName: string
         // the first currency in the pair is called base
         baseCurrency: Code
         quoteCurrency: Code
-        volume: int64    
+        pairPrice: Price
+        volume: Volume
+        // priceExcluded: bool    
     }
 
 
@@ -119,13 +132,30 @@ module Exchanges =
                         )
                         |> (fun volume -> 
                             match volume with
-                            | ValidUSDPrice p -> p 
-                            |_ -> 0L
+                            | ValidPrice p -> {volume =p;excluded=false} 
+                            | ExcludedPrice p  -> {volume=p;excluded=true} 
+                            | InvalidPrice ->  {volume=0.M;excluded=false}
                         )
+                    let pairPriceUSD = 
+                        children
+                        |> Seq.item 4
+                        |> (fun td -> 
+                            td.Elements() 
+                            |> Seq.head 
+                            |> (fun span -> span.InnerText())
+                        )
+                        |> (fun pairPrice -> 
+                            match pairPrice with
+                            | ValidPrice p -> {price=p;excluded=false} 
+                            | ExcludedPrice p  -> {price=p;excluded=true} 
+                            | InvalidPrice ->  {price=0.M;excluded=false}
+                        )                   
 
                     {
+                        exchangeName=exchangeName
                         baseCurrency= baseCurr
                         quoteCurrency= quoteCurr
+                        pairPrice=pairPriceUSD
                         volume=pairVolume
                     }                                 
                 ) 

@@ -11,8 +11,7 @@ open Utils
 
 #r @"packages\Fsharp.Data.dll"
 
-open FSharp.Data.Runtime.BaseTypes
-open System
+
 open FSharp.Data
 
 //#time
@@ -41,7 +40,7 @@ let coinsBasicInfo =
             coinSymbol, 
             match coinVolume with
             | ValidUSDPrice p -> p 
-            |_ -> 0L
+            |_ -> 0.M
         )    
     )
 
@@ -65,15 +64,24 @@ let coinsWithCapInInterval low high =
     Seq.filter (fun (_,_,v) -> low <= v && v <= high ) coinsBasicInfo
 
 
-let coinsInIntervalWithHighProfile =
-    coinsWithCapInInterval 5_000_000L 900_000_000L
-    |> Seq.filter(fun (_, code, _) -> 
-        Seq.exists(fun (c:string, pr ) -> 
-            c.ToLower() = code.ToLower() && pr >=90
-        ) coinsCodeAndProfile
-    )
+let profileCoins profile coins (_,code:string,_) = 
+    Seq.exists(fun (c:string, pr ) -> 
+        c.ToLower() = code.ToLower() && pr >= profile
+    ) coins
+
+let highestProfileCoins = profileCoins 90
+let highProfileCoins = profileCoins 80
+
+let smallCapAltcoinsHighestProfile =
+    coinsWithCapInInterval 5000000.0M 90000000.0M
+    |> Seq.filter (highestProfileCoins coinsCodeAndProfile)    
     |> Seq.sortByDescending (fun (_,_, v) -> v)
     |> List.ofSeq
 
-coinsInIntervalWithHighProfile |> Seq.length   
+smallCapAltcoinsHighestProfile |> Seq.length   
 
+let majorCoinsHighProfile =
+    coinsWithCapInInterval 90000000.M 1000000000000.M
+    |> Seq.filter (highProfileCoins coinsCodeAndProfile)    
+    |> Seq.sortByDescending (fun (_,_, v) -> v)
+    |> List.ofSeq
