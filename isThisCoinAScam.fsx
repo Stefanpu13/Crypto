@@ -60,7 +60,7 @@ let coinsCodeAndProfile =
         (code, profileValue)        
     )
 
-let coinsWithCapInInterval low high = 
+let coinsWithDailyVolumeInInterval low high = 
     Seq.filter (fun (_,_,v) -> low <= v && v <= high ) coinsBasicInfo
 
 
@@ -73,7 +73,7 @@ let highestProfileCoins = profileCoins 90
 let highProfileCoins = profileCoins 80
 
 let smallCapAltcoinsHighestProfile =
-    coinsWithCapInInterval 5000000.0M 90000000.0M
+    coinsWithDailyVolumeInInterval 5_000_000.0M 90_000_000.0M
     |> Seq.filter (highestProfileCoins coinsCodeAndProfile)    
     |> Seq.sortByDescending (fun (_,_, v) -> v)
     |> List.ofSeq
@@ -81,7 +81,11 @@ let smallCapAltcoinsHighestProfile =
 smallCapAltcoinsHighestProfile |> Seq.length   
 
 let majorCoinsHighProfile =
-    coinsWithCapInInterval 90000000.M 1000000000000.M
+    coinsWithDailyVolumeInInterval 90_000_000.M 1000000000000.M
     |> Seq.filter (highProfileCoins coinsCodeAndProfile)    
     |> Seq.sortByDescending (fun (_,_, v) -> v)
     |> List.ofSeq
+
+let coinsHighProfile = 
+    coinsWithDailyVolumeInInterval 20_000_000.M 1_000_000_000_000.M
+

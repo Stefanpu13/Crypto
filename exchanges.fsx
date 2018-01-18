@@ -55,7 +55,9 @@ module Exchanges =
         exchangesInfoRows
         |> Seq.filter(fun row -> 
             let ems = row.CssSelect("td > em")
-            if ems.IsEmpty then false
+
+            if ems.IsEmpty 
+            then false
             else ems.Head.InnerText() = "Total"
         )
         |> Seq.map( fun volumeRow -> 

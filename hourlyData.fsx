@@ -1,4 +1,3 @@
-
 (*
     Collect hourly data from coinamrket gap and see if it can be used 
     for as historical data
@@ -42,75 +41,37 @@
      - volume
  *)
 
-#r @"packages\Fsharp.Data.dll" 
-open FSharp.Data.Runtime.StructuralInference
-#r @"packages\FSharp.Data.SqlClient.dll" 
-open System
+#load "parsers.fsx"
+open Parsers
 
-open FSharp.Data
+#load "DB.fsx"
+open DB
 
-#load "exchanges.fsx"
-open Exchanges.Exchanges
+// #time
+CoinMarketCap.init()
+IsThisCoinAScam.init()
 
-
-[<Literal>]
-let connectionString = 
-    @"Data Source=.;Initial Catalog=Crypto;Integrated Security=True"
-
-let isBTC_USDT pair = 
-    pair.baseCurrency.ToLower() = "btc" &&
-    pair.quoteCurrency.ToLower() = "usdt"
-
-let startWritingToDb ()= 
+let startWritingToDb () = 
     while true do
-        System.Threading.Thread.Sleep 20000
-        let coinsInExchanges = coinsPerExchanges (top20Exchanges |> Seq.take 3)
+        System.Threading.Thread.Sleep 60000
+        let coinsInExchanges = 
+            CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())
 
-        coinsInExchanges 
-        |> Seq.map(fun (exchangeName, pairs) ->                
-            match Seq.tryFind isBTC_USDT pairs with
-            | Some p ->  (exchangeName, Some p)
-            | None -> exchangeName, None        
-        )
-        |> Seq.iter (fun exchange ->        
-            match exchange with
-            |  (n, Some p) -> 
-                use cmd = new SqlCommandProvider<"
-                INSERT INTO PairPrice (Date, Price, Exchange, Code)     
-                VALUES(@date, @price, @exchange, @code)
-                ", connectionString>(connectionString)
+        DB.writeToDb coinsInExchanges
 
-                cmd.Execute(
-                    date=DateTime.Now,
-                    price=p.pairPrice.price,
-                    exchange=n,
-                    code=p.baseCurrency.ToLower() + "/" + p.quoteCurrency.ToLower()
-                    ) |> ignore
-                
-            | (n, None) ->  printfn "Exchange %A does not have btc/usdt pair" n       
+// startWritingToDb ()
 
-            // printfn "------------------------------------------"
-        )
-
-let readFromDb () = 
-    // do
-    use cmd = new SqlCommandProvider<"
-    Select Date, Price, Exchange, Code 
-    From PairPrice
-    ", connectionString>(connectionString)
-
-    cmd.Execute()
 
 
 // group records by exchange
-let records = readFromDb ()  
-
-let pairsByExchange = 
-    records
-    |> Seq.groupBy (fun record -> record.Exchange.ToLower())
+let records = DB.readFromDb ()  
     
 // get results for specific exchange
 let dataForExchange (exchangeName: string) =     
+    let pairsByExchange = 
+        records
+        |> Seq.groupBy (fun record -> record.Exchange.ToLower())
+
     let foundExchange = 
         pairsByExchange 
         |> Seq.tryFind (fun (en, _) -> 
@@ -129,11 +90,70 @@ let uniqPricesForBinance =
     |> Seq.distinctBy(fun r -> r.Price)
 
 
-// average time for update
+// average time for update for binance
 uniqPricesForBinance 
-|> List.ofSeq
-|> List.map(fun r -> r.Date)
-|> List.pairwise
-|> List.map(fun (f, s) -> 
+|> Seq.map(fun r -> r.Date)
+|> Seq.pairwise
+|> Seq.map(fun (f, s) -> 
     s.Subtract(f).Minutes
 )
+|> List.ofSeq
+|> Seq.averageBy float
+
+
+let allCoins = CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())
+
+let allPairsInTop20Exchanges = 
+    allCoins |> Seq.map snd |> Seq.collect id |> Seq.length
+
+// how much daily data will I have to write if I collect info
+// for all 20 exchanges` pairs every 10 mins
+
+let recordsPerHour = 60/10 
+let hours = 24
+
+allPairsInTop20Exchanges * recordsPerHour * hours
+
+// how much daily data will I have to write if I collect info
+// for all 20 exchanges` pairs, that are high profile,  every 10 mins
+
+let highVolumeCoinsCodes = 
+    IsThisCoinAScam.coinsWithDailyVolumeInInterval 5_000_000.M 1_000_000_000_000.M
+    |> Seq.map (fun (_,CoinCode code,_) -> code.ToLower())
+    |> Set.ofSeq
+
+let highProfilePairs = 
+    allCoins
+    |> Seq.map snd 
+    |> Seq.collect id
+    |> Seq.map(fun p -> p.baseCurrency.ToLower())
+    |> Seq.filter(fun code -> 
+        highVolumeCoinsCodes |> Set.contains code
+    )
+    |> Seq.length
+
+let dailyRecordsCount = highProfilePairs * recordsPerHour * hours
+
+
+// #load "parsers.fsx"
+// open Parsers
+
+
+// // #time
+// CoinMarketCap.init()
+// IsThisCoinAScam.init()
+
+// CoinMarketCap.getTopExchangesWithVolume ()
+
+// CoinMarketCap.coinsInExchange "binance"
+
+// CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())
+// |> Seq.length
+    
+
+// let smallCapAltcoinsHighestProfile =
+//     IsThisCoinAScam.coinsWithDailyVolumeInInterval  5_000_000.0M 1_000_000_000_000.0M
+//     |> Seq.filter (IsThisCoinAScam.profileCoins 80 IsThisCoinAScam.coinsCodeAndProfile)    
+//     |> Seq.sortByDescending (fun (_,_, v) -> v)
+//     |> List.ofSeq
+
