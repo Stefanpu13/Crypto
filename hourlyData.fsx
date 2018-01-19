@@ -41,31 +41,19 @@
      - volume
  *)
 
+#r @"packages\FSharp.Data.SqlClient.dll" 
+open System
+open FSharp.Data
+
 #load "parsers.fsx"
+#load "DBReader.fsx"
 open Parsers
-
-#load "DB.fsx"
-open DB
-
-// #time
-CoinMarketCap.init()
-IsThisCoinAScam.init()
-
-let startWritingToDb () = 
-    while true do
-        System.Threading.Thread.Sleep 60000
-        let coinsInExchanges = 
-            CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())
-
-        DB.writeToDb coinsInExchanges
-
-// startWritingToDb ()
-
+open DBReader
 
 
 // group records by exchange
-let records = DB.readFromDb ()  
-    
+let records = DB.readFromDb ()      
+
 // get results for specific exchange
 let dataForExchange (exchangeName: string) =     
     let pairsByExchange = 
@@ -85,9 +73,9 @@ let dataForExchange (exchangeName: string) =
 
 // get unique prices 
 let uniqPricesForBinance = 
-    dataForExchange "binance" 
+    dataForExchange "upbit" 
     |> snd 
-    |> Seq.distinctBy(fun r -> r.Price)
+    |> Seq.distinctBy(fun r -> r.PriceUSD)
 
 
 // average time for update for binance
@@ -101,6 +89,7 @@ uniqPricesForBinance
 |> Seq.averageBy float
 
 
+// #time
 let allCoins = CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())
 
 let allPairsInTop20Exchanges = 
@@ -109,7 +98,7 @@ let allPairsInTop20Exchanges =
 // how much daily data will I have to write if I collect info
 // for all 20 exchanges` pairs every 10 mins
 
-let recordsPerHour = 60/10 
+let recordsPerHour = 60/20 
 let hours = 24
 
 allPairsInTop20Exchanges * recordsPerHour * hours
@@ -122,7 +111,7 @@ let highVolumeCoinsCodes =
     |> Seq.map (fun (_,CoinCode code,_) -> code.ToLower())
     |> Set.ofSeq
 
-let highProfilePairs = 
+let highProfilePairsLength = 
     allCoins
     |> Seq.map snd 
     |> Seq.collect id
@@ -132,12 +121,7 @@ let highProfilePairs =
     )
     |> Seq.length
 
-let dailyRecordsCount = highProfilePairs * recordsPerHour * hours
-
-
-// #load "parsers.fsx"
-// open Parsers
-
+// let dailyRecordsCount = highProfilePairsLength * recordsPerHour * hours
 
 // // #time
 // CoinMarketCap.init()
@@ -156,4 +140,3 @@ let dailyRecordsCount = highProfilePairs * recordsPerHour * hours
 //     |> Seq.filter (IsThisCoinAScam.profileCoins 80 IsThisCoinAScam.coinsCodeAndProfile)    
 //     |> Seq.sortByDescending (fun (_,_, v) -> v)
 //     |> List.ofSeq
-

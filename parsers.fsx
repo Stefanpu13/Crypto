@@ -1,3 +1,34 @@
+(*
+    What data do i need to save for each exchange?
+        - name
+        - country of operation(or registration)
+        - traded currencies (as pairs)
+        - hourly/daily volume for each pair
+        - hourly/daily exchange rates for each pair
+    
+    What other data is valuable?
+        - added/removed currencies pairs
+            * Adding a currency, especially on large and reputable exchange,
+            is positive sign for the currency(although it will probably intially drop
+            as early investors exit)
+            * Removing currency is bad sign and will cause sell-off
+        - differences in prices accross exchanges - market is decentralized and fragmented.
+        That means that in the coming months/years, different things will affect individual 
+        exchanges:
+            * theft
+            * regulations
+            * bans
+        The info will not be available immediately in the form of news. However,
+        Informed people will do actions that will cause price distortions. For example,
+            * Upcoming negative events will cause increased sells at particular
+            echange. As result the prices of major coins will be lower than on other
+            exchanges
+                ** If prices are for a specific currency only, that might indicate
+                problem with the currency (for exmaple, its about to be removed)
+                ** IF prices are for several currencies, 
+                than maybe the exchange has problems
+*)
+
 #r @"packages\Fsharp.Data.dll"
 open FSharp.Data.Runtime.BaseTypes
 open System
@@ -44,9 +75,8 @@ type CodeAndProfile = CodeAndProfile of string * int
 module CoinMarketCap = 
     
     let exchangesUri = "https://coinmarketcap.com/exchanges/volume/24-hour/all/"
-    let mutable exchangesPage = HtmlDocument.New(Seq.empty)
-    let mutable exchangesInfoRows = List.Empty
-    let mutable alreadyInitialized = false
+    let mutable exchangesPage = HtmlDocument.Load(exchangesUri)
+    let mutable exchangesInfoRows = exchangesPage.CssSelect(".table.table-condensed > tr")    
     let count = 25   
 
     let reInit(uri: string) =         
@@ -151,14 +181,6 @@ module CoinMarketCap =
             |> Set.exists(fun c -> c.baseCurrency.ToLower() = coinCode.ToLower())
         )
 
-    let init() = 
-        if not alreadyInitialized then
-            exchangesPage <- HtmlDocument.Load(exchangesUri)
-            exchangesInfoRows <- exchangesPage.CssSelect(".table.table-condensed > tr")
-
-        alreadyInitialized <- true         
-
-
 module IsThisCoinAScam =
     let allCoinsPage = HtmlDocument.Load("https://coinmarketcap.com/all/views/all/")
 
@@ -223,6 +245,6 @@ module IsThisCoinAScam =
             c.ToLower() = code.ToLower() && pr >= profile
         ) coins
     
-    let init () = 
-        coinsBasicInfo <- getCoinsBasicInfo () 
+    
+    coinsBasicInfo <- getCoinsBasicInfo ()
 

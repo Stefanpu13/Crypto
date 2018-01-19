@@ -8,9 +8,6 @@ open System
 open Parsers
 open DBWriter
 
-CoinMarketCap.init()
-IsThisCoinAScam.init()
-
 let startWritingToDb () = 
     while true do        
         let coinsInExchanges = 
