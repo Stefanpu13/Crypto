@@ -120,23 +120,3 @@ let highProfilePairsLength =
         highVolumeCoinsCodes |> Set.contains code
     )
     |> Seq.length
-
-// let dailyRecordsCount = highProfilePairsLength * recordsPerHour * hours
-
-// // #time
-// CoinMarketCap.init()
-// IsThisCoinAScam.init()
-
-// CoinMarketCap.getTopExchangesWithVolume ()
-
-// CoinMarketCap.coinsInExchange "binance"
-
-// CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())
-// |> Seq.length
-    
-
-// let smallCapAltcoinsHighestProfile =
-//     IsThisCoinAScam.coinsWithDailyVolumeInInterval  5_000_000.0M 1_000_000_000_000.0M
-//     |> Seq.filter (IsThisCoinAScam.profileCoins 80 IsThisCoinAScam.coinsCodeAndProfile)    
-//     |> Seq.sortByDescending (fun (_,_, v) -> v)
-//     |> List.ofSeq
