@@ -8,10 +8,9 @@ let (|ValidUSDPrice|_|) (price: string) =
 
 
 let (|ValidPrice|ExcludedPrice|InvalidPrice|) (price: string) = 
-    let mutable v = 0.M 
+    let mutable v = 0.M
      
-     
-    let priceStr = price.Trim().Substring(1).Replace(",", "")
+    let priceStr = price.Replace("$","").Replace(",", "").Replace(" ", "")
     if priceStr.Contains("*") then
         let excludedPriceStr = priceStr.Replace("*", "")
 
@@ -22,3 +21,9 @@ let (|ValidPrice|ExcludedPrice|InvalidPrice|) (price: string) =
         if Decimal.TryParse(priceStr, &v) 
         then ValidPrice v
         else InvalidPrice   
+
+
+match "$0.798179"  with
+| ValidPrice v -> v,0
+| ExcludedPrice v -> v, 1
+|InvalidPrice-> 0.M,2

@@ -1,10 +1,12 @@
 #r @"packages\Fsharp.Data.dll"
+open FSharp.Data.Runtime.BaseTypes
 open System
 open FSharp.Data
 
 #load "utils.fsx"
 open Utils
     
+
 type Code = string
 
 type Coin = {    
@@ -30,7 +32,17 @@ type Pair = {
     volume: Volume    
 }
 
+type CoinName = CoinName of string
+
+type CoinCode = CoinCode of string
+type CoinVolume = CoinVolume of decimal
+// type
+type BasicInfo = CoinName * CoinCode * CoinVolume
+
+type CodeAndProfile = CodeAndProfile of string * int
+
 module CoinMarketCap = 
+    
     let exchangesUri = "https://coinmarketcap.com/exchanges/volume/24-hour/all/"
     let mutable exchangesPage = HtmlDocument.New(Seq.empty)
     let mutable exchangesInfoRows = List.Empty
@@ -72,58 +84,53 @@ module CoinMarketCap =
 
         List.zip topExchanges topExchangesVolume
 
-    let coinsInExchange exchangeName = 
+    let getExchangePairsRows (exchangePage:HtmlDocument) = 
+        exchangePage.CssSelect(".table-responsive tr") 
+        // skip the header row
+        |> Seq.skip 1 
+
+    let parseExchangePairRow exchangeName (row: HtmlNode) =     
+        let children = row.Elements()
+        let pair = 
+            children
+            |> Seq.item 2
+            |> (fun td -> td.InnerText())
+        let baseAndQuote = pair.Split([|'/'|])               
+        let baseCurr, quoteCurr = baseAndQuote.[0], baseAndQuote.[1]
+        let pairVolume = 
+            children 
+            |> Seq.item 3
+            |> (fun td -> td.InnerText())
+            |> (fun volume -> 
+                match volume with
+                | ValidPrice p -> {volume =p;excluded=false} 
+                | ExcludedPrice p  -> {volume=p;excluded=true} 
+                | InvalidPrice ->  {volume=0.M;excluded=false}
+            )
+        let pairPriceUSD = 
+            children
+            |> Seq.item 4
+            |> (fun td -> td.InnerText())
+            |> (fun pairPrice -> 
+                match pairPrice with
+                | ValidPrice p -> {price=p;excluded=false} 
+                | ExcludedPrice p  -> {price=p;excluded=true} 
+                | InvalidPrice ->  {price=0.M;excluded=false}
+            )
+        {
+            exchangeName=exchangeName
+            baseCurrency= baseCurr
+            quoteCurrency= quoteCurr
+            pairPrice=pairPriceUSD
+            volume=pairVolume
+        }            
+
+    let coinsInExchange exchangeName =         
         let exchangePage = 
             HtmlDocument.Load("https://coinmarketcap.com/exchanges/" + exchangeName)
         let listedCoinsRows = 
-            exchangePage.CssSelect(".table-responsive tr") 
-            // skip the header row
-            |> Seq.skip 1 
-            |> Seq.map(fun row ->
-                let children = row.Elements()
-                let pair = 
-                    children
-                    |> Seq.item 2
-                    |> (fun td -> td.InnerText())
-                let baseAndQuote = pair.Split([|'/'|])               
-                let baseCurr, quoteCurr = baseAndQuote.[0], baseAndQuote.[1]
-                let pairVolume = 
-                    children 
-                    |> Seq.item 3
-                    |> (fun td -> 
-                        td.Elements() 
-                        |> Seq.head 
-                        |> (fun span -> span.InnerText())
-                    )
-                    |> (fun volume -> 
-                        match volume with
-                        | ValidPrice p -> {volume =p;excluded=false} 
-                        | ExcludedPrice p  -> {volume=p;excluded=true} 
-                        | InvalidPrice ->  {volume=0.M;excluded=false}
-                    )
-                let pairPriceUSD = 
-                    children
-                    |> Seq.item 4
-                    |> (fun td -> 
-                        td.Elements() 
-                        |> Seq.head 
-                        |> (fun span -> span.InnerText())
-                    )
-                    |> (fun pairPrice -> 
-                        match pairPrice with
-                        | ValidPrice p -> {price=p;excluded=false} 
-                        | ExcludedPrice p  -> {price=p;excluded=true} 
-                        | InvalidPrice ->  {price=0.M;excluded=false}
-                    )                   
-
-                {
-                    exchangeName=exchangeName
-                    baseCurrency= baseCurr
-                    quoteCurrency= quoteCurr
-                    pairPrice=pairPriceUSD
-                    volume=pairVolume
-                }                                 
-            ) 
+            getExchangePairsRows exchangePage
+            |> Seq.map (parseExchangePairRow exchangeName)
             |> Set.ofSeq          
         
         exchangeName, listedCoinsRows  
@@ -151,18 +158,8 @@ module CoinMarketCap =
 
         alreadyInitialized <- true         
 
-type CoinName = CoinName of string
-
-type CoinCode = CoinCode of string
-type CoinVolume = CoinVolume of decimal
-// type
-type BasicInfo = CoinName * CoinCode * CoinVolume
-
-type CodeAndProfile = CodeAndProfile of string * int
 
 module IsThisCoinAScam =
-    
-
     let allCoinsPage = HtmlDocument.Load("https://coinmarketcap.com/all/views/all/")
 
     let coinRows = allCoinsPage.CssSelect("#currencies-all > tbody > tr")
@@ -179,7 +176,6 @@ module IsThisCoinAScam =
         match Seq.tryHead (parent.CssSelect(selector)) with
         |Some  el ->  el.InnerText() 
         |None -> "Element does not exist"
-
 
     let coinsCodeAndProfile = 
         allCoinsProfiles |> Seq.map (fun row ->
