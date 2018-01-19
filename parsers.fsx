@@ -170,6 +170,12 @@ module IsThisCoinAScam =
 
     let allCoinsProfiles = allCoinsProfilesPage.CssSelect("#example > tbody > tr")
 
+    allCoinsProfiles |> Seq.item 0 |> (fun row ->                 
+        row.Elements() 
+        |> Seq.last 
+        |>  (fun td -> td.InnerText())
+    )
+
     let mutable coinsBasicInfo = Seq.empty
 
     let getInnerText (parent: HtmlNode) selector = 
@@ -183,7 +189,7 @@ module IsThisCoinAScam =
             let profileValue = 
                 row.Elements() 
                 |> Seq.last 
-                |> (fun el -> getInnerText el ".progress-bar span")
+                |> (fun el -> el.InnerText())
                 |> int
 
             CodeAndProfile (code, profileValue)        
@@ -219,3 +225,4 @@ module IsThisCoinAScam =
     
     let init () = 
         coinsBasicInfo <- getCoinsBasicInfo () 
+
