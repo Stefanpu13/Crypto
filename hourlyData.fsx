@@ -41,7 +41,7 @@
      - volume
  *)
 
-#r @"packages\FSharp.Data.SqlClient.dll" 
+#r @"bin/FSharp.Data.SqlClient.dll" 
 open System
 open FSharp.Data
 
@@ -52,7 +52,7 @@ open DBReader
 
 
 // group records by exchange
-let records = DB.readFromDb ()      
+let records = DB.readFromAzureDb ()      
 
 // get results for specific exchange
 let dataForExchange (exchangeName: string) =     

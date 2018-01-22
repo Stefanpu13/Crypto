@@ -29,8 +29,7 @@
                 than maybe the exchange has problems
 *)
 
-#r @"packages\Fsharp.Data.dll"
-open FSharp.Data.Runtime.BaseTypes
+#r @"bin/Fsharp.Data.dll"
 open System
 open FSharp.Data
 

@@ -1,5 +1,6 @@
-#r @"packages\Fsharp.Data.dll"
-#r @"packages\FSharp.Data.SqlClient.dll" 
+#r @"bin/Fsharp.Data.dll"
+
+#r @"bin/FSharp.Data.SqlClient.dll" 
 open FSharp.Data
 open System
 
@@ -8,7 +9,7 @@ open System
 open Parsers
 open DBWriter
 
-let startWritingToDb () = 
+let startWritingToDb writingFn = 
     while true do        
         let coinsInExchanges = 
             CoinMarketCap.coinsPerExchanges (CoinMarketCap.getTop25Exchanges())            
@@ -16,9 +17,10 @@ let startWritingToDb () =
         printfn "%A" (Seq.length coinsInExchanges)
 
         printfn "Start writing to db"
-        let rowsAdded = DB.writeToDb coinsInExchanges
-        printfn "Finish writing to db. Rows added: %A" rowsAdded
-
+        writingFn coinsInExchanges
+        printfn "Finish writing to db. Rows added:"
         System.Threading.Thread.Sleep 30000
 
-startWritingToDb ()
+startWritingToDb DB.writeToAzureDb
+
+// startWritingToDb DB.writeToLocalDb
